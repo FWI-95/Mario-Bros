@@ -3,8 +3,10 @@ package com.fwi95.mariobros.Screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
@@ -15,11 +17,14 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.fwi95.mariobros.MarioBros;
 import com.fwi95.mariobros.Scenes.Hud;
+import com.fwi95.mariobros.Sprites.Goomba;
 import com.fwi95.mariobros.Sprites.Mario;
 import com.fwi95.mariobros.Tools.B2WorldCreator;
+import com.fwi95.mariobros.Tools.WorldContactListener;
 
 public class PlayScreen implements Screen {
     private MarioBros game;
+    private TextureAtlas atlas;
     private OrthographicCamera gamecam;
     private Viewport gameport;
 
@@ -35,10 +40,15 @@ public class PlayScreen implements Screen {
     private Box2DDebugRenderer b2dr;
 
     private Mario player;
+    private Goomba goomba;
+
+    private Music music;
 
     public PlayScreen(MarioBros game){
         this.game = game;
         gamecam = new OrthographicCamera();
+        atlas = new TextureAtlas("Mario_and_Enemies.txt");
+
         // gameport = new StretchViewport(MarioBros.V_WIDTH, MarioBros.V_HEIGHT, gamecam);
         // gameport = new ScreenViewport(gamecam);
         gameport = new FitViewport(MarioBros.V_WIDTH / MarioBros.PPM, MarioBros.V_HEIGHT / MarioBros.PPM, gamecam);
@@ -54,10 +64,21 @@ public class PlayScreen implements Screen {
         world = new World(new Vector2(0,-10), true);
         b2dr = new Box2DDebugRenderer();
 
-        new B2WorldCreator(world, map);
+        new B2WorldCreator(this);
 
-        player = new Mario(world);
+        player = new Mario(this);
 
+        world.setContactListener(new WorldContactListener());
+
+        music = MarioBros.manager.get("audio/music/mario_music.ogg", Music.class);
+        music.setLooping(true);
+        // music.play();
+
+        goomba = new Goomba(this, .32f, .32f);
+    }
+
+    public TextureAtlas getAtlas(){
+        return atlas;
     }
     @Override
     public void show() {
@@ -82,6 +103,10 @@ public class PlayScreen implements Screen {
 
         world.step(1/60f, 6, 2);
 
+        player.update(delta);
+        goomba.update(delta);
+        hud.update(delta);
+
         gamecam.position.x = player.b2body.getPosition().x;
 
         gamecam.update();
@@ -99,6 +124,12 @@ public class PlayScreen implements Screen {
 
         b2dr.render(world, gamecam.combined);
 
+        game.batch.setProjectionMatrix(gamecam.combined);
+        game.batch.begin();
+        player.draw(game.batch);
+        // goomba.draw(game.batch);
+        game.batch.end();
+
         game.batch.setProjectionMatrix(hud.stage.getCamera().combined);
         hud.stage.draw();
     }
@@ -106,6 +137,14 @@ public class PlayScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         gameport.update(width, height);
+    }
+
+    public TiledMap getMap(){
+        return map;
+    }
+
+    public World getWorld(){
+        return world;
     }
 
     @Override
